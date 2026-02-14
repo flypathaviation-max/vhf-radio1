@@ -1,0 +1,592 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>VHF COM Radio (simple)</title>
+  <style>
+    :root{
+      --bg:#101318;
+      --panel:#1b2028;
+      --panel2:#141820;
+      --edge:#2b3240;
+      --text:#cfd7e6;
+      --muted:#7f8aa3;
+      --amber:#ff9a1f;
+      --amber2:#ffb24b;
+      --green:#21d07a;
+      --btn:#2a3342;
+      --btn2:#313c4e;
+      --shadow: 0 20px 60px rgba(0,0,0,.45);
+      --radius: 18px;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      min-height:100vh;
+      display:grid;
+      place-items:center;
+      background: radial-gradient(1200px 700px at 50% 30%, #1a2030 0%, #0b0d12 60%, #07080b 100%);
+      color:var(--text);
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, "Noto Sans", "Helvetica Neue", sans-serif;
+    }
+    .wrap{
+      width:min(820px, 96vw);
+      padding:18px;
+    }
+    .radio{
+      background: linear-gradient(180deg, var(--panel) 0%, var(--panel2) 100%);
+      border:1px solid var(--edge);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding:18px 18px 16px;
+      position:relative;
+      overflow:hidden;
+    }
+    .radio:before{
+      content:"";
+      position:absolute; inset:-60px -60px auto -60px;
+      height:120px;
+      background: radial-gradient(500px 120px at 50% 50%, rgba(255,255,255,.06), transparent 60%);
+      pointer-events:none;
+    }
+
+    .top{
+      display:flex;
+      align-items:flex-start;
+      justify-content:space-between;
+      gap:18px;
+    }
+    .labels{
+      display:grid;
+      grid-template-columns: 1fr 1fr;
+      gap:14px;
+      flex:1;
+    }
+    .label{
+      font-size:12px;
+      letter-spacing:.08em;
+      color:var(--muted);
+      text-transform:uppercase;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      margin-bottom:6px;
+      padding:0 4px;
+    }
+    .display{
+      background: #07090d;
+      border:1px solid #30384a;
+      border-radius: 12px;
+      padding:10px 12px;
+      height:58px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,.03);
+    }
+    .digits{
+      font-variant-numeric: tabular-nums;
+      font-size:34px;
+      letter-spacing:.06em;
+      color:var(--amber);
+      text-shadow: 0 0 16px rgba(255,154,31,.18);
+      user-select:none;
+    }
+    .activeBadge{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      font-size:12px;
+      color:var(--muted);
+      margin-top:8px;
+      padding:0 4px;
+    }
+    .lamp{
+      width:9px;height:9px;border-radius:99px;
+      background:#253044;
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,.06);
+    }
+    .lamp.on{
+      background: var(--green);
+      box-shadow: 0 0 14px rgba(33,208,122,.35);
+    }
+
+    .right{
+      width:230px;
+      display:flex;
+      flex-direction:column;
+      gap:12px;
+      align-items:stretch;
+    }
+
+    .btnRow{
+      display:flex;
+      gap:10px;
+    }
+    button{
+      appearance:none;
+      border:1px solid #3a4458;
+      background: linear-gradient(180deg, var(--btn2), var(--btn));
+      color:var(--text);
+      border-radius: 12px;
+      padding:10px 12px;
+      font-weight:600;
+      letter-spacing:.02em;
+      cursor:pointer;
+      box-shadow: 0 8px 20px rgba(0,0,0,.25);
+      user-select:none;
+    }
+    button:active{ transform: translateY(1px); }
+    .swap{ flex:1; font-size:14px; }
+    .pwr{ width:86px; display:flex; align-items:center; justify-content:center; gap:8px; }
+    .pwr .dot{
+      width:10px;height:10px;border-radius:999px;background:#3b465c;
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,.06);
+    }
+    .pwr.on .dot{ background: var(--green); box-shadow: 0 0 14px rgba(33,208,122,.35); }
+
+    .stepBox{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      padding:10px 12px;
+      border:1px solid #3a4458;
+      border-radius: 12px;
+      background: rgba(0,0,0,.15);
+      color:var(--muted);
+      font-size:13px;
+    }
+    .toggle{
+      width:54px;height:28px;border-radius:999px;
+      background:#2a3243;
+      border:1px solid #3a4458;
+      position:relative;
+      cursor:pointer;
+      flex:0 0 auto;
+    }
+    .toggle:before{
+      content:"";
+      position:absolute;
+      top:3px; left:3px;
+      width:22px;height:22px;border-radius:999px;
+      background:#cfd7e6;
+      opacity:.85;
+      transition: transform .18s ease;
+    }
+    .toggle.on{ background:#23374a; }
+    .toggle.on:before{ transform: translateX(26px); background: var(--amber2); }
+
+    .mid{
+      margin-top:16px;
+      display:flex;
+      gap:16px;
+      align-items:center;
+      justify-content:space-between;
+      flex-wrap:wrap;
+    }
+
+    .knobs{
+      display:flex;
+      gap:16px;
+      align-items:center;
+    }
+    .knobWrap{
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      gap:8px;
+      width:140px;
+    }
+    .knob{
+      width:98px; height:98px;
+      border-radius:999px;
+      background: radial-gradient(closest-side at 35% 30%, rgba(255,255,255,.14), transparent 55%),
+                  radial-gradient(closest-side at 70% 70%, rgba(0,0,0,.55), transparent 60%),
+                  linear-gradient(180deg, #3b4455, #232a36);
+      border:1px solid #4b556b;
+      box-shadow: 0 16px 34px rgba(0,0,0,.35), inset 0 0 0 1px rgba(255,255,255,.05);
+      position:relative;
+      cursor:grab;
+      touch-action:none;
+      user-select:none;
+    }
+    .knob:active{ cursor:grabbing; }
+    .knob:after{
+      content:"";
+      position:absolute;
+      top:10px; left:50%;
+      width:6px; height:18px;
+      transform: translateX(-50%);
+      border-radius:6px;
+      background: rgba(255,255,255,.75);
+      box-shadow: 0 0 10px rgba(255,255,255,.15);
+    }
+    .kLabel{
+      font-size:12px;
+      letter-spacing:.08em;
+      color:var(--muted);
+      text-transform:uppercase;
+    }
+    .hint{
+      font-size:12px;
+      color:var(--muted);
+      line-height:1.35;
+      max-width:360px;
+    }
+    .hint kbd{
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+      font-size:11px;
+      padding:2px 6px;
+      border-radius:6px;
+      border:1px solid #3a4458;
+      background: rgba(0,0,0,.18);
+      color: var(--text);
+    }
+    .footer{
+      margin-top:14px;
+      display:flex;
+      justify-content:space-between;
+      gap:12px;
+      flex-wrap:wrap;
+      color:var(--muted);
+      font-size:12px;
+    }
+    .mini{
+      opacity:.9;
+    }
+    .mono{
+         
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+    }
+
+    /* ====== MOBILE FIX ====== */
+    @media (max-width: 720px) {
+      .wrap { padding: 10px; }
+
+      /* Apila secciones */
+      .top { flex-direction: column; align-items: stretch; }
+      .labels { grid-template-columns: 1fr; }
+
+      /* Columna derecha debajo y a ancho completo */
+      .right { width: 100%; }
+      .btnRow { flex-direction: column; }
+      .pwr { width: 100%; justify-content: center; }
+      .swap { width: 100%; }
+
+      .stepBox { width: 100%; }
+
+      /* Tamaños */
+      .display { height: 54px; }
+      .digits { font-size: 30px; }
+
+      .mid { gap: 12px; }
+      .knobWrap { width: 120px; }
+      .knob { width: 84px; height: 84px; }
+
+      .hint { max-width: 100%; }
+    }
+
+    @media (max-width: 420px) {
+      .digits { font-size: 28px; }
+      .knobWrap { width: 110px; }
+      .knob { width: 78px; height: 78px; }
+    }
+
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="radio" role="application" aria-label="VHF COM Radio">
+      <div class="top">
+        <div class="labels">
+          <div>
+            <div class="label"><span>ACTIVE</span><span class="mono" id="rngA"></span></div>
+            <div class="display"><div class="digits" id="active">124.000</div></div>
+            <div class="activeBadge"><span class="lamp on" id="lamp"></span><span id="pwrText">ON</span></div>
+          </div>
+          <div>
+            <div class="label"><span>STANDBY</span><span class="mono" id="stepTxt"></span></div>
+            <div class="display"><div class="digits" id="standby">124.850</div></div>
+            <div class="activeBadge"><span class="lamp" id="lamp2"></span><span>EDIT</span></div>
+          </div>
+        </div>
+
+        <div class="right">
+          <div class="btnRow">
+            <button class="pwr on" id="pwrBtn" title="Power (P)">
+              <span class="dot"></span><span>POWER</span>
+            </button>
+            <button class="swap" id="swapBtn" title="Swap Active/Standby (Space)">↔ SWAP</button>
+          </div>
+
+          <div class="stepBox">
+            <div>
+              <div class="mini">Paso de canal</div>
+              <div><span class="mono" id="stepMode">25 kHz</span></div>
+            </div>
+            <div class="toggle" id="stepToggle" title="Toggle 25 kHz / 8.33 kHz"></div>
+          </div>
+
+          <div class="stepBox">
+            <div>
+              <div class="mini">Bloqueo de rango</div>
+              <div class="mono">118.000–136.975</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="mid">
+        <div class="knobs">
+          <div class="knobWrap">
+            <div class="knob" id="knobMHz" aria-label="Knob MHz" title="Arrastra / rueda: MHz"></div>
+            <div class="kLabel">MHz (grueso)</div>
+          </div>
+          <div class="knobWrap">
+            <div class="knob" id="knobKHz" aria-label="Knob kHz" title="Arrastra / rueda: kHz"></div>
+            <div class="kLabel">kHz (fino)</div>
+          </div>
+        </div>
+
+        <div class="hint">
+          Controles: arrastra las perillas (vertical u horizontal) o usa la rueda del ratón encima.<br/>
+          <kbd>Space</kbd> swap · <kbd>P</kbd> power · <kbd>↑/↓</kbd> kHz · <kbd>←/→</kbd> MHz · <kbd>R</kbd> reset
+        </div>
+      </div>
+
+      <div class="footer">
+        <div>Modo: <span class="mono" id="modeTxt">VHF COM</span></div>
+        <div class="mini">Hecho para “jugar” con la sintonía (sin ATC/FS).</div>
+      </div>
+    </div>
+  </div>
+
+<script>
+(() => {
+  // --- Config ---
+  const MIN = 118.000, MAX = 136.975;
+  const STEP_25 = 0.025;
+  const STEP_833 = 0.00833; // aproximación suficiente para UI; se cuantiza
+
+  let powerOn = true;
+  let use833 = false;
+
+  // Standby is what knobs edit.
+  let active = 124.000;
+  let standby = 124.850;
+
+  const elActive = document.getElementById('active');
+  const elStandby = document.getElementById('standby');
+  const pwrBtn = document.getElementById('pwrBtn');
+  const swapBtn = document.getElementById('swapBtn');
+  const lamp = document.getElementById('lamp');
+  const lamp2 = document.getElementById('lamp2');
+  const pwrText = document.getElementById('pwrText');
+  const stepToggle = document.getElementById('stepToggle');
+  const stepMode = document.getElementById('stepMode');
+  const stepTxt = document.getElementById('stepTxt');
+  const rngA = document.getElementById('rngA');
+  const knobMHz = document.getElementById('knobMHz');
+  const knobKHz = document.getElementById('knobKHz');
+
+  rngA.textContent = "COM";
+
+  function clamp(x){ return Math.min(MAX, Math.max(MIN, x)); }
+
+  function fmt(f){
+    // always show 3 decimals
+    return f.toFixed(3);
+  }
+
+  function quantize25(f){
+    // round to nearest 25 kHz channel
+    const k = Math.round((f - Math.floor(f)) / STEP_25);
+    const base = Math.floor(f);
+    let q = base + k * STEP_25;
+    // carry if overflowed decimals
+    q = Math.round(q * 1000) / 1000;
+    return q;
+  }
+
+  function quantize833(f){
+    // 8.33 kHz channelization approximation:
+    // quantize to 0.005 steps in display is common in some stacks,
+    // but for simple sim we quantize to STEP_833 in MHz.
+    const base = Math.floor(f);
+    const frac = f - base;
+    const k = Math.round(frac / STEP_833);
+    let q = base + k * STEP_833;
+    // snap to 3 decimals display
+    q = Math.round(q * 1000) / 1000;
+    return q;
+  }
+
+  function quantize(f){
+    f = clamp(f);
+    f = use833 ? quantize833(f) : quantize25(f);
+    // after quantization, ensure bounds
+    return clamp(f);
+  }
+
+  function setStandby(f){
+    standby = quantize(f);
+    render();
+  }
+
+  function setActive(f){
+    active = quantize(f);
+    render();
+  }
+
+  function render(){
+    if(powerOn){
+      elActive.textContent = fmt(active);
+      elStandby.textContent = fmt(standby);
+      elActive.style.opacity = "1";
+      elStandby.style.opacity = "1";
+      lamp.classList.add('on');
+      lamp2.classList.remove('on');
+      pwrBtn.classList.add('on');
+      pwrText.textContent = "ON";
+    } else {
+      elActive.textContent = "— — — —";
+      elStandby.textContent = "— — — —";
+      elActive.style.opacity = ".6";
+      elStandby.style.opacity = ".6";
+      lamp.classList.remove('on');
+      lamp2.classList.remove('on');
+      pwrBtn.classList.remove('on');
+      pwrText.textContent = "OFF";
+    }
+
+    stepToggle.classList.toggle('on', use833);
+    stepMode.textContent = use833 ? "8.33 kHz" : "25 kHz";
+    stepTxt.textContent = use833 ? "8.33" : "25";
+  }
+
+  function swap(){
+    if(!powerOn) return;
+    const tmp = active;
+    active = standby;
+    standby = tmp;
+    render();
+  }
+
+  function togglePower(){
+    powerOn = !powerOn;
+    render();
+  }
+
+  function toggleStep(){
+    use833 = !use833;
+    // re-quantize both to new step so display stays coherent
+    active = quantize(active);
+    standby = quantize(standby);
+    render();
+  }
+
+  // --- Knob interaction ---
+  function makeKnob(el, onDelta){
+    let dragging = false;
+    let lastX = 0, lastY = 0;
+    let angle = 0;
+
+    const setAngle = (a) => {
+      angle = a;
+      el.style.transform = `rotate(${angle}deg)`;
+    };
+
+    const start = (clientX, clientY) => {
+      if(!powerOn) return;
+      dragging = true;
+      lastX = clientX;
+      lastY = clientY;
+      el.setPointerCapture?.(event.pointerId);
+    };
+
+    const move = (clientX, clientY) => {
+      if(!dragging || !powerOn) return;
+      const dx = clientX - lastX;
+      const dy = clientY - lastY;
+
+      // combine dx and -dy so vertical drag feels natural
+      const d = dx + (-dy);
+
+      // speed: 1 step per ~14px
+      const steps = Math.trunc(d / 14);
+
+      if(steps !== 0){
+        onDelta(steps);
+        // rotate for feedback
+        setAngle(angle + steps * 6);
+        // consume whole steps
+        lastX += steps * 14;
+        lastY -= steps * 14; // keep drift small
+      }
+    };
+
+    const end = () => { dragging = false; };
+
+    el.addEventListener('pointerdown', (event) => {
+      start(event.clientX, event.clientY);
+    });
+    el.addEventListener('pointermove', (event) => {
+      move(event.clientX, event.clientY);
+    });
+    el.addEventListener('pointerup', end);
+    el.addEventListener('pointercancel', end);
+
+    // mouse wheel: one notch = one step
+    el.addEventListener('wheel', (event) => {
+      if(!powerOn) return;
+      event.preventDefault();
+      const dir = Math.sign(event.deltaY); // down = + usually, but invert to feel like "up increases"
+      const steps = dir === 0 ? 0 : -dir;
+      onDelta(steps);
+      setAngle(angle + steps * 6);
+    }, {passive:false});
+  }
+
+  function stepKHzValue(){
+    return use833 ? STEP_833 : STEP_25;
+  }
+
+  // MHz knob: step 1.000 MHz
+  makeKnob(knobMHz, (steps) => {
+    setStandby(standby + steps * 1.000);
+  });
+
+  // kHz knob: step channel size
+  makeKnob(knobKHz, (steps) => {
+    setStandby(standby + steps * stepKHzValue());
+  });
+
+  // Buttons
+  swapBtn.addEventListener('click', swap);
+  pwrBtn.addEventListener('click', togglePower);
+  stepToggle.addEventListener('click', toggleStep);
+
+  // Keyboard
+  window.addEventListener('keydown', (e) => {
+    if(e.repeat) return;
+    const k = e.key.toLowerCase();
+    if(k === ' '){ e.preventDefault(); swap(); }
+    else if(k === 'p'){ togglePower(); }
+    else if(k === 'r'){
+      powerOn = true; use833 = false;
+      active = 124.000; standby = 124.850;
+      render();
+    }
+    else if(e.key === 'ArrowUp'){ if(powerOn) setStandby(standby + stepKHzValue()); }
+    else if(e.key === 'ArrowDown'){ if(powerOn) setStandby(standby - stepKHzValue()); }
+    else if(e.key === 'ArrowRight'){ if(powerOn) setStandby(standby + 1.0); }
+    else if(e.key === 'ArrowLeft'){ if(powerOn) setStandby(standby - 1.0); }
+  });
+
+  render();
+})();
+</script>
+</body>
+</html>
